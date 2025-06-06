@@ -138,12 +138,10 @@ async def get_res(id:str):
             status, result_path = a
             logger.info(f"状态{status}：结果：{result_path}")
             
-            if status == "completed":
-                return {"status_code":1, "msg":"success", "content":{"data":f.read()}}
-            elif status == "processing failed":
-                return {"status_code":-1, "msg":"processing failed", "content":{}}
-            elif status == "pending":
-                return {"status_code":0, "msg":"processing", "content":{}}
+            
+            with open(result_path, 'r') as f:
+                return f.read()
+            
  
             # return FileResponse(path=result_path)
             # return StreamingResponse(io.BytesIO(open(result_path).read()))

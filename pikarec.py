@@ -21,6 +21,7 @@ import sys
 import pika
 import copy
 import re
+from test_async_llm import *
 tm = TaskManager()
 
 def timeit(func):
@@ -384,14 +385,12 @@ def callback(ch, method, properties, body):
                 logger.info(f"实例化TextHander:")
                 th = TextHander(audio_id, ah.subtitle_h, output_dir)
                 logger.info(f"实例化TextHander完成")
-                for index, section in enumerate(th.section_lst):
-                    logger.info(f"开始处理第{index+1}部分：{section}")
-                    message = th.build_message_one(section)
-                    logger.info(f"构建第{index+1}个消息完成")
-                    logger.info(f"思考中...")
-                    llm_output = get_tamp_text(message)
-                    # llm_output = local_ds.chat(message)
-                    logger.info(f"大模型返回：{llm_output}")
+                messages_batch = [th.build_message_one(section) for section in th.section_lst]
+                
+                logger.info(f"思考中...")
+                llm_outputs = parallel_requests(messages_batch)
+                logger.info(f"大模型返回：{llm_outputs}")
+                for index, llm_output in enumerate(llm_outputs):
                     if "<think>" in llm_output:
                         llm_output = llm_output.strip(f"<think>{get_think(llm_output)}</think>").strip()
                     if "json" in llm_output:
@@ -409,7 +408,9 @@ def callback(ch, method, properties, body):
                     for i in range(len(res)):
                         t = res[i]
                         t.pop("timestamp")
+                
                 filter_info(tmp)
+                tmp = {i:j for i,j in enumerate(tmp)}
                 logger.info(f"过滤后ah.sentence_info:{tmp}")
                 logger.info("开始处理大模型返回结果")
                 tt = TopicTimer(output_dir,id=audio_id)

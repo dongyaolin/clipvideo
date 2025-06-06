@@ -63,7 +63,8 @@ class TaskManager:
 
 if __name__ == "__main__":
     tm = TaskManager()
-    tm.add_task(1,"/upload/1.mp3")
-    print(tm.get_audio_status(1))
-    tm.update_audio_status(1,"completed")
-    print(tm.get_audio_status(1))
+    # tm.add_task(1,"/upload/1.mp3")
+    # print(tm.get_audio_status(1))
+    # tm.update_audio_status(1,"completed")
+    # print(tm.get_audio_status(1))
+    print(tm.get_audio_status('9a95b394-1168-425f-8800-84cbc880e723'))

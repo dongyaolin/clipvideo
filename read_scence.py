@@ -31,7 +31,7 @@ def llmandpaser(q)->dict:
 class TopicTimer:
     def __init__(self, topic_dir=None, save=None, vedio_name=None, id=None):
         
-        if self.id is not None:
+        if id is not None:
             self.id = id
         self.vedio_name = vedio_name
         if vedio_name is None:
@@ -132,7 +132,7 @@ class TopicTimer:
 
 
 if __name__ == "__main__":
-    res = TopicTimer("/root/llmoutjson/小颗粒度",vedio_name='source-C')
+    res = TopicTimer("/root/llmoutjson/小颗粒度/75c52b27-648e-4e9b-95ad-dc33333d6490",vedio_name='source-C',id="df0892ac-501e-404a-a68f-af54bfd531ab")
     res1 = [{"topic": i, "timestamp": j} for i, j in res.topics.items()]
     print(res1)
     print(len(res1))
