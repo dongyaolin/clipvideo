@@ -13,15 +13,25 @@ import jieba
 from jieba import analyse
 from sqlitemodule import TaskManager
 import uuid
+import io
 import pika
 app = FastAPI()
 
 
 def send(input_convert_audio):
+    parameters = pika.ConnectionParameters(
+                host='localhost',
+                # socket_timeout=6000000,  # 增加 socket 超时时间
+                heartbeat=0,       # 增加心跳间隔
+                # blocked_connection_timeout=300000  # 增加连接被阻塞时的超时时间
+    )
+    connection = pika.BlockingConnection(parameters)
+    channel = connection.channel()
+    channel.queue_declare(queue='task_queue', durable=True)
     channel.basic_publish(exchange='',  # use a default exchange identified by an empty string
-                      routing_key='task_queue',  # queue name needs to be specified in the routing_key parameter
-                      body= input_convert_audio
-                      )
+    routing_key='task_queue',  # queue name needs to be specified in the routing_key parameter
+    body= input_convert_audio
+    )
 
 tm = TaskManager()
 
@@ -85,25 +95,38 @@ async def upload_audio(file:UploadFile):
         tm.add_task(audio_id, file_path)
         logger.info("添加成功")
         logger.info("开始连接消息队列")
-        parameters = pika.ConnectionParameters(
-                host='localhost',
-                # socket_timeout=6000000,  # 增加 socket 超时时间
-                heartbeat=0,       # 增加心跳间隔
-                # blocked_connection_timeout=300000  # 增加连接被阻塞时的超时时间
-            )
-
-        connection = pika.BlockingConnection(parameters)
-        channel = connection.channel()
-        channel.queue_declare(queue='task_queue', durable=True)
         send(audio_id)
         logger.info(f" [x] Sent {audio_id!r}")
-        return {"status_code":200, "msg":"success", "content":{"audio_res_id":audio_id}}
+        return {"status_code":1, "msg":"success", "content":{"audio_id":audio_id}}
     
     except Exception as e:
         logger.error(f"上传失败{e}")
-        return {"status_code": 500, "msg":"failed", "content": ""}
-                       
-@app.post("/getRes")
+        return {"status_code": -1, "msg":"failed", "content": {}}
+
+
+@app.get("/getStatus")
+async def get_status(id:str):
+    try:
+        logger.info("准备连接数据库，获取数据状态")
+
+        a = tm.get_audio_status(id)
+        logger.info("获取成功", a)
+
+        if len(a) ==2:
+            status, result_path = a
+            if status == "completed":
+                return {"status_code":1, "msg":"success", "content":{"status":status}}
+            elif status == "processing failed":
+                return {"status_code":-1, "msg":"success", "content":{"status":status}}
+            elif status == "pending":
+                return {"status_code":0, "msg":"success", "content":{"status":status}}
+            
+    except Exception as e:
+        return {"status_code":-1, "msg":"id not found", "content":{}}
+
+
+
+@app.get("/getRes")
 async def get_res(id:str):
     try:
         logger.info("准备连接数据库，获取数据状态")
@@ -114,13 +137,20 @@ async def get_res(id:str):
         if len(a) ==2:
             status, result_path = a
             logger.info(f"状态{status}：结果：{result_path}")
-            if status != "completed":
-                return {"status_code":200, "msg":"not completed", "content":{"content":""}}
-            with open(result_path, 'r') as f:
-                return {"status_code":200, "msg":"success", "content":json.load(f)}
             
+            if status == "completed":
+                return {"status_code":1, "msg":"success", "content":{"data":f.read()}}
+            elif status == "processing failed":
+                return {"status_code":-1, "msg":"processing failed", "content":{}}
+            elif status == "pending":
+                return {"status_code":0, "msg":"processing", "content":{}}
+ 
+            # return FileResponse(path=result_path)
+            # return StreamingResponse(io.BytesIO(open(result_path).read()))
+            # return {"status_code":200, "msg":"success", "content":StreamingResponse(io.BytesIO(f.read()))}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"{str(e)}")
+        return {"status_code":-1, "msg":"id not found", "content":{}}
+        # raise HTTPException(status_code=500, detail=f"{str(e)}")
 
 @app.post("/generateSearchWords")
 async def generate_search_word(text:str):
@@ -129,11 +159,11 @@ async def generate_search_word(text:str):
         b = jieba.cut_for_search(text)
         a+=b
         res = list(set(a))
-        return {"status_code":200, "msg":"success", "content":{"res":res}}
+        return {"status_code":1, "msg":"success", "content":{"res":res}}
         
     except HTTPException as e:
         logger.error(f"{e}")
-        return {"status_code": 500, "msg": "failed", "content":""}
+        return {"status_code": -1, "msg": "failed", "content":{}}
 
 
 if __name__ == "__main__":

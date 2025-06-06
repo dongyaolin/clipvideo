@@ -305,7 +305,6 @@ class TextHander:
             count = 0
             
             res = await get_temp_text_async(messages=message)
-                
             logger.info(f"大模型返回结果：{res}")
 
             
@@ -364,12 +363,9 @@ class TextHander:
         )
 
 def write_file(src, content):
-        try:
-            content = eval(content)
-        except Exception as e:
-            logger.info(f"转化json字符串出错{e}")
-        with open(src, "w") as f:
-            json.dump(content, f, ensure_ascii=False)
+    with open(src, "w") as f:
+        json.dump(content, f, ensure_ascii=False)
+        # json.dump(content, f, ensure_ascii=False)
 from test_local_llm import LocalDeepSeekChat
 local_ds = LocalDeepSeekChat()
 def callback(ch, method, properties, body):
@@ -420,17 +416,22 @@ def callback(ch, method, properties, body):
                 logger.info(f"tt.topics.items():{tt.topics.items()}")
                 res2 = [{"topic": i, "timestamp": j} for i, j in tt.topics.items()]
                 res = {"subtile":tmp, "topics":res2}
-                write_file(f"/root/res/{audio_id}.json", res)
+                write_file(f"/root/res/{audio_id}.json", str(res))
                 logger.info(f"更新任务状态")
                 tm.update_audio_status(audio_id, "completed")
                 logger.info("更新任务状态成功")
 
             except Exception as e:
                 print(e)
+                tm.update_audio_status(audio_id, "processing failed")
+                
         print(audio_id)
     except Exception as e:
+        tm.update_audio_status(audio_id, "processing failed")
         ch.basic_ack(delivery_tag=method.delivery_tag)
+
     except Exception as e:
+        tm.update_audio_status(audio_id, "processing failed")
         print(e)
 
 
