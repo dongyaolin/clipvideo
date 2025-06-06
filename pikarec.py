@@ -412,7 +412,7 @@ def callback(ch, method, properties, body):
                 filter_info(tmp)
                 logger.info(f"过滤后ah.sentence_info:{tmp}")
                 logger.info("开始处理大模型返回结果")
-                tt = TopicTimer(output_dir)
+                tt = TopicTimer(output_dir,id=audio_id)
                 logger.info(f"tt.topics.items():{tt.topics.items()}")
                 res2 = [{"topic": i, "timestamp": j} for i, j in tt.topics.items()]
                 res = {"subtile":tmp, "topics":res2}
